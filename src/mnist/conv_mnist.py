@@ -137,50 +137,83 @@ def inference(x, keep_prob, summaries):
                            layer_name='max_pool_2')
     out = fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
                    layer_name='fc_1', summaries=summaries)
-    y_pred = fc_layer(input_tensor=out, no_filters=10, act=tf.identity,
+    logits = fc_layer(input_tensor=out, no_filters=10, act=tf.identity,
                       layer_name='fc_2', summaries=summaries)
 
-    return y_pred
+    return logits
+
+
+def loss(logits, labels):
+    '''
+    Calculate cross entropy loss
+    '''
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+        labels=labels, logits=logits)
+    return tf.reduce_mean(cross_entropy)
+
+
+def train(loss, learning_rate):
+    '''
+    Train model by optimizing gradient descent
+    Add summary to track loss on TensorBoard
+    '''
+    # Create gradient descent optimizer with learning rate
+    optimizer = tf.train.AdamOptimizer(learning_rate)
+    train_op = optimizer.minimize(loss)
+    tf.summary.scalar('loss', loss)
+    return train_op
+
+
+def evaluate(logits, labels):
+    '''
+    Evaluate accuracy of logits at predicting labels
+    Add summary to track accuracy on TensorBoard
+    '''
+    correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
+    accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    tf.summary.scalar('accuracy', accuracy_op)
+    return accuracy_op
 
 
 def main(_):
     # Load MNIST data into memory
     mnist = read_data_sets('../' + FLAGS.data, one_hot=True)
 
-    # Start TF session
+    # Start session
     sess = tf.InteractiveSession()
 
-    # Create model
-    x = tf.placeholder(tf.float32, shape=[None, 784])
-    y_ = tf.placeholder(tf.float32, shape=[None, 10])
+    # Generate placeholder variables to represent input tensors
+    images = tf.placeholder(tf.float32, shape=[None, 784])
+    labels = tf.placeholder(tf.float32, shape=[None, 10])
     keep_prob = tf.placeholder(tf.float32)
 
-    # Build graph for deep net
-    y_pred = inference(x, keep_prob, FLAGS.tensorboard)
+    # Build Graph that computes predictions from inference model
+    logits = inference(images, keep_prob, FLAGS.tensorboard)
 
-    # Loss fn
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-        labels=y_, logits=y_pred))
+    # Add loss operation to Graph
+    loss_op = loss(logits, labels)
 
-    # Train
-    train_op = tf.train.AdamOptimizer(LEARNING_RATE).minimize(cross_entropy)
+    # Add training operation to Graph
+    train_op = train(loss_op, LEARNING_RATE)
 
-    # Evaluation fns
-    correct_prediction = tf.equal(tf.argmax(y_pred, 1), tf.argmax(y_, 1))
-    accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-    # Monitoring
-    tf.summary.scalar('loss', cross_entropy)
-    tf.summary.scalar('accuracy', accuracy_op)
+    # Add accuracy operation to Graph
+    accuracy_op = evaluate(logits, labels)
 
     with tf.Session() as sess:
+        # Build summary Tensor based on collection of Summaries
         summary_op = tf.summary.merge_all()
+        # Instantiate summary writer for training
         train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train',
                                              sess.graph)
+        # Instantiate summary writer for testing
         test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test',
                                             sess.graph)
 
-        sess.run(tf.global_variables_initializer())
+        # Add variable initializer
+        init = tf.global_variables_initializer()
+        sess.run(init)
+
+        # Number of images in test data
         no_vals = mnist.validation.labels.shape[0]
 
         # Training cycle
@@ -189,7 +222,9 @@ def main(_):
             # Train and record train set summaries
             batch_xs, batch_ys = mnist.train.next_batch(BATCH_SIZE)
             summary, _ = sess.run([summary_op, train_op], feed_dict={
-                                  x: batch_xs, y_: batch_ys, keep_prob: 0.5
+                                  images: batch_xs,
+                                  labels: batch_ys,
+                                  keep_prob: 0.5
                                   })
             train_writer.add_summary(summary, i)
 
@@ -200,28 +235,28 @@ def main(_):
                 t1 = time.time()
                 sample = np.random.choice(range(no_vals), 500, replace=False)
 
-                summary, acc, loss = sess.run(
-                    [summary_op, accuracy_op, cross_entropy],
-                    feed_dict={x: mnist.validation.images[sample],
-                               y_: mnist.validation.labels[sample],
+                summary, acc, los = sess.run(
+                    [summary_op, accuracy_op, loss_op],
+                    feed_dict={images: mnist.validation.images[sample],
+                               labels: mnist.validation.labels[sample],
                                keep_prob: 1.0}
                 )
                 test_writer.add_summary(summary, i)
 
                 print(("Iter: {}, Loss: {}, Accuracy: {} "
                       "[train batch time: {:.2f}s, eval time: {:.2f}s]")
-                      .format(i, loss, acc, mean_batch_time, time.time() - t1))
+                      .format(i, los, acc, mean_batch_time, time.time() - t1))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default='data/mnist_data',
-                        help='Path to input data')
+    parser.add_argument('--data_dir', type=str, default='data/mnist_data',
+                        help='Path to input data directory')
     parser.add_argument('--tensorboard', action='store_true',
                         help='TensorBoard on/off ')
     parser.add_argument('--log_dir', type=str,
                         default='logs/mnist/conv_mnist',
-                        help='TensorBoard Summaries log directory')
+                        help='Path to log directory')
 
     FLAGS, unparsed = parser.parse_known_args()
 
