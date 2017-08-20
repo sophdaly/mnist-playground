@@ -18,8 +18,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 FLAGS = None
 LEARNING_RATE = 1e-4
-BATCH_SIZE = 32
-DISPLAY_STEP = 100
+BATCH_SIZE = 100
+NO_CLASSES = 10
+IMAGE_SIZE = 28
 
 
 def weight_variable(shape):
@@ -119,15 +120,15 @@ def fc_layer(layer_name, input_tensor, no_filters, act=tf.nn.relu,
             return activation
 
 
-def inference(x, keep_prob, summaries):
+def inference(images, keep_prob, summaries):
     '''
     Build network graph to compute output predictions for images
     '''
-    # Reshape x to 4d tensor
+    # Reshape images to 4d tensor
     # [BATCH_SIZE, 784] -> [BATCH_SIZE, width, height, no_color_channels]
-    x_image = tf.reshape(x, [-1, 28, 28, 1])
+    input = tf.reshape(images, [-1, IMAGE_SIZE, IMAGE_SIZE, 1])
 
-    out = conv2d_layer(input_tensor=x_image, filter_size=5, no_filters=32,
+    out = conv2d_layer(input_tensor=input, filter_size=5, no_filters=32,
                        layer_name='conv_1', summaries=summaries)
     out = max_pool2d_layer(input_tensor=out, pool_size=2, stride=2,
                            layer_name='max_pool_1')
@@ -137,7 +138,7 @@ def inference(x, keep_prob, summaries):
                            layer_name='max_pool_2')
     out = fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
                    layer_name='fc_1', summaries=summaries)
-    logits = fc_layer(input_tensor=out, no_filters=10, act=tf.identity,
+    logits = fc_layer(input_tensor=out, no_filters=NO_CLASSES, act=tf.identity,
                       layer_name='fc_2', summaries=summaries)
 
     return logits
@@ -164,9 +165,9 @@ def train(loss, learning_rate):
     return train_op
 
 
-def evaluate(logits, labels):
+def accuracy(logits, labels):
     '''
-    Evaluate accuracy of logits at predicting labels
+    Calculate accuracy of logits at predicting labels
     Add summary to track accuracy on TensorBoard
     '''
     correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
@@ -175,77 +176,110 @@ def evaluate(logits, labels):
     return accuracy_op
 
 
+def fill_feed_dict(data, images_pl, labels_pl, keep_prob_pl, keep_prob):
+    '''
+    Fill feed_dict for training step
+    '''
+    batch_images, batch_labels = data.next_batch(BATCH_SIZE)
+    return {images_pl: batch_images,
+            labels_pl: batch_labels,
+            keep_prob_pl: keep_prob}
+
+
+def evaluate(sess, data, images_pl, labels_pl, keep_prob_pl, keep_prob,
+             accuracy_op):
+    '''
+    Evaluate model against data
+    '''
+    epoch = data.num_examples // BATCH_SIZE
+    acc = 0.0
+    t0 = time.time()
+    for i in range(epoch):
+        feed_dict = fill_feed_dict(data, images_pl, labels_pl,
+                                   keep_prob_pl, keep_prob)
+        acc += sess.run(accuracy_op, feed_dict=feed_dict)
+
+    print(("Epoch Accuracy: {:.4f} [timer: {:.2f}s]")
+          .format(acc / epoch, time.time() - t0))
+
+
 def main(_):
     # Load MNIST data into memory
-    mnist = read_data_sets('../' + FLAGS.data, one_hot=True)
+    mnist = read_data_sets('../' + FLAGS.data_dir, one_hot=True)
 
     # Start session
     sess = tf.InteractiveSession()
 
     # Generate placeholder variables to represent input tensors
-    images = tf.placeholder(tf.float32, shape=[None, 784])
-    labels = tf.placeholder(tf.float32, shape=[None, 10])
-    keep_prob = tf.placeholder(tf.float32)
+    images_pl = tf.placeholder(tf.float32, shape=[None, 784])
+    labels_pl = tf.placeholder(tf.float32, shape=[None, NO_CLASSES])
+    keep_prob_pl = tf.placeholder(tf.float32)
 
     # Build Graph that computes predictions from inference model
-    logits = inference(images, keep_prob, FLAGS.tensorboard)
+    logits = inference(images_pl, keep_prob_pl, FLAGS.tensorboard)
 
     # Add loss operation to Graph
-    loss_op = loss(logits, labels)
+    loss_op = loss(logits, labels_pl)
 
     # Add training operation to Graph
     train_op = train(loss_op, LEARNING_RATE)
 
     # Add accuracy operation to Graph
-    accuracy_op = evaluate(logits, labels)
+    accuracy_op = accuracy(logits, labels_pl)
 
     with tf.Session() as sess:
         # Build summary Tensor based on collection of Summaries
         summary_op = tf.summary.merge_all()
+
         # Instantiate summary writer for training
-        train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train',
-                                             sess.graph)
-        # Instantiate summary writer for testing
-        test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test',
-                                            sess.graph)
+        summary_writer = tf.summary.FileWriter(FLAGS.log_dir + '/summary',
+                                               sess.graph)
 
         # Add variable initializer
         init = tf.global_variables_initializer()
+
+        # Create saver for writing training checkpoints
+        # Unless specified Saver will save all variables
+        # Maximum of 3 latest models are saved
+        saver = tf.train.Saver(max_to_keep=3)
+
+        # Run variable initializer
         sess.run(init)
 
-        # Number of images in test data
-        no_vals = mnist.validation.labels.shape[0]
-
         # Training cycle
-        t0 = time.time()
-        for i in range(5000):
-            # Train and record train set summaries
-            batch_xs, batch_ys = mnist.train.next_batch(BATCH_SIZE)
-            summary, _ = sess.run([summary_op, train_op], feed_dict={
-                                  images: batch_xs,
-                                  labels: batch_ys,
-                                  keep_prob: 0.5
-                                  })
-            train_writer.add_summary(summary, i)
+        for i in range(FLAGS.steps):
+            t0 = time.time()
 
-            if i % DISPLAY_STEP == 0:
-                # Evaluate accuracy on test set and record summaries
-                # Subsample test set (for speed)
-                mean_batch_time = (time.time() - t0) / 100.0
-                t1 = time.time()
-                sample = np.random.choice(range(no_vals), 500, replace=False)
+            # Fill feed dict with training data and dropout keep prob
+            feed_dict = fill_feed_dict(mnist.train, images_pl,
+                                       labels_pl, keep_prob_pl, 0.5)
 
+            # Train model
+            sess.run(train_op, feed_dict=feed_dict)
+
+            # Write summaries and log status
+            if i % 100 == 0:
                 summary, acc, los = sess.run(
                     [summary_op, accuracy_op, loss_op],
-                    feed_dict={images: mnist.validation.images[sample],
-                               labels: mnist.validation.labels[sample],
-                               keep_prob: 1.0}
-                )
-                test_writer.add_summary(summary, i)
+                    feed_dict=feed_dict)
+                summary_writer.add_summary(summary, i)
+                print(("Step: {}, Loss: {}, Accuracy: {}, [timer: {:.2f}s]")
+                      .format(i, los, acc, time.time() - t0))
 
-                print(("Iter: {}, Loss: {}, Accuracy: {} "
-                      "[train batch time: {:.2f}s, eval time: {:.2f}s]")
-                      .format(i, los, acc, mean_batch_time, time.time() - t1))
+            # Save checkpoints and evaluate model periodically
+            if (i + 1) % 1000 == 0 or (i + 1) == FLAGS.steps:
+                checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
+                saver.save(sess, checkpoint_file, global_step=i)
+
+                # Evaluate training data
+                print("Evaluating Training Data:")
+                evaluate(sess, mnist.train, images_pl, labels_pl,
+                         keep_prob_pl, 0.1, accuracy_op)
+
+                # Evaluate test data
+                print("Evaluating Test Data:")
+                evaluate(sess, mnist.test, images_pl, labels_pl,
+                         keep_prob_pl, 0.5, accuracy_op)
 
 
 if __name__ == '__main__':
@@ -257,7 +291,8 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', type=str,
                         default='logs/mnist/conv_mnist',
                         help='Path to log directory')
+    parser.add_argument('--steps', type=int, default=5000,
+                        help='Number of steps to run trainer')
 
     FLAGS, unparsed = parser.parse_known_args()
-
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
