@@ -13,9 +13,11 @@ import os
 # Silence compile warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+FLAGS = None
+LEARNING_RATE = 1e-4
+BATCH_SIZE = 100
 NO_CLASSES = 10
 IMAGE_SIZE = 28
-BATCH_SIZE = 100
 
 
 def weight_variable(shape):
