@@ -23,17 +23,15 @@ def main(_):
     # Load MNIST data into memory
     mnist = read_data_sets(FLAGS.data_dir, one_hot=True)
 
-    # Start session
-    sess = tf.InteractiveSession()
-
     # Generate placeholder variables to represent input tensors
+    # Note: add names to tensors that need to be restored
     images_pl = tf.placeholder(tf.float32, shape=[None, 784], name='images_pl')
     labels_pl = tf.placeholder(tf.float32, shape=[None, NO_CLASSES],
                                name='labels_pl')
     keep_prob_pl = tf.placeholder(tf.float32, name='keep_prob_pl')
 
     # Build Graph that computes predictions from inference model
-    logits = conv_mnist.inference(images_pl, keep_prob_pl, FLAGS.tensorboard)
+    logits = conv_mnist.inference(images_pl, keep_prob_pl, FLAGS.summaries)
 
     # Add loss operation to Graph
     loss_op = conv_mnist.loss(logits, labels_pl)
@@ -55,8 +53,16 @@ def main(_):
         # Add variable initializer
         init = tf.global_variables_initializer()
 
-        # Create saver for writing training checkpoints
-        saver = tf.train.Saver(max_to_keep=3)
+        # Get trainable variables to restore
+        # Note: you can create custom GraphKey collections and add specific
+        # variables to it to restore
+        variables_to_restore = tf.get_collection(
+            tf.GraphKeys.TRAINABLE_VARIABLES)
+
+        # Add ops to save variables to checkpoints
+        # Unless specified Saver will save ALL named variables in Graph
+        # Maximum of 3 latest models are sasved
+        saver = tf.train.Saver(var_list=variables_to_restore, max_to_keep=3)
 
         # Run variable initializer
         sess.run(init)
@@ -83,6 +89,8 @@ def main(_):
 
             # Save checkpoints and evaluate model periodically
             if (i + 1) % 1000 == 0 or (i + 1) == FLAGS.steps:
+                # Since Tf variables are only alive inside a session you
+                # have to save the model inside the session
                 checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_file, global_step=i)
 
@@ -94,17 +102,17 @@ def main(_):
                 # Evaluate test data
                 print("Evaluating Test Data:")
                 conv_mnist.evaluate(sess, mnist.test, images_pl, labels_pl,
-                                    keep_prob_pl, 0.1, accuracy_op)
+                                    keep_prob_pl, 1, accuracy_op)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, default='data/znist_data',
+    parser.add_argument('--data_dir', type=str, default='data/mnist_data',
                         help='Path to input data directory')
-    parser.add_argument('--tensorboard', action='store_true',
-                        help='TensorBoard on/off ')
+    parser.add_argument('--summaries', action='store_true',
+                        help='Generate Tensorboard summaries')
     parser.add_argument('--log_dir', type=str,
-                        default='logs/conv_znist/model',
+                        default='log/conv_mnist/model',
                         help='Path to log directory')
     parser.add_argument('--steps', type=int, default=5000,
                         help='Number of steps to run trainer')

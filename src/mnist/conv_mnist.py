@@ -13,19 +13,19 @@ import os
 # Silence compile warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-FLAGS = None
-LEARNING_RATE = 1e-4
-BATCH_SIZE = 100
 NO_CLASSES = 10
 IMAGE_SIZE = 28
+BATCH_SIZE = 100
 
 
 def weight_variable(shape):
-    return tf.Variable(tf.truncated_normal(shape, stddev=0.1))
+    return tf.get_variable(name='weights',
+                           initializer=tf.truncated_normal(shape, stddev=0.1))
 
 
 def bias_variable(shape):
-    return tf.Variable(tf.constant(0.1, shape=shape))
+    return tf.get_variable(name='biases',
+                           initializer=tf.constant(0.1, shape=shape))
 
 
 def conv2d(x, W):
@@ -41,7 +41,7 @@ def variable_summaries(var, name):
 
 def activation_summaries(x, name):
     tf.summary.scalar(name + '/sparsity', tf.nn.zero_fraction(x))
-    tf.summary.histogram(name + '/activations', x)
+    tf.summary.histogram(name, x)
     variable_summaries(x, name)
 
 
@@ -50,35 +50,33 @@ def conv2d_layer(layer_name, input_tensor, filter_size, no_filters,
     '''
     Implement 2D convolution, non-linearize with ReLU
     '''
-    with tf.name_scope(layer_name):
+    # Add variables and operations to scopes to ensure logical grouping of
+    # layers Graph
+    with tf.variable_scope(layer_name):
         input_dim = input_tensor.get_shape()[-1].value
 
-        with tf.variable_scope(layer_name):
-            weight = weight_variable([filter_size, filter_size,
-                                     input_dim, no_filters])
-            bias = bias_variable([no_filters])
-            if summaries:
-                variable_summaries(weight, layer_name + '/weight')
-                variable_summaries(bias, layer_name + '/bias')
+        weight = weight_variable([filter_size, filter_size, input_dim,
+                                 no_filters])
+        bias = bias_variable([no_filters])
+        preactivate = tf.nn.bias_add(conv2d(input_tensor, weight), bias)
+        activation = act(preactivate, "activation")
 
-        with tf.name_scope('activations'):
-            preactivate = tf.nn.bias_add(conv2d(input_tensor, weight), bias)
-            activation = act(preactivate, "activation")
-            if summaries:
-                activation_summaries(activation, layer_name)
+        if summaries:
+            variable_summaries(weight, '/weights')
+            variable_summaries(bias, '/biases')
+            activation_summaries(activation, 'activations')
 
-            return activation
+        return activation
 
 
 def max_pool2d_layer(layer_name, input_tensor, pool_size, stride):
     '''
     Apply 2x2 max pooling
     '''
-    with tf.name_scope(layer_name):
+    with tf.variable_scope(layer_name):
         pooled = tf.nn.max_pool(
             input_tensor, ksize=[1, pool_size, pool_size, 1],
-            strides=[1, stride, stride, 1], padding='SAME'
-        )
+            strides=[1, stride, stride, 1], padding='SAME')
         return pooled
 
 
@@ -88,7 +86,7 @@ def fc_layer(layer_name, input_tensor, no_filters, act=tf.nn.relu,
     Flatten input_tensor if needed, non-linearize with ReLU and optionally
     apply dropout
     '''
-    with tf.name_scope(layer_name):
+    with tf.variable_scope(layer_name):
         # Reshape input tensor to flatten tensor if needed
         input_shape = input_tensor.get_shape()
         if len(input_shape) == 4:
@@ -99,22 +97,20 @@ def fc_layer(layer_name, input_tensor, no_filters, act=tf.nn.relu,
         else:
             raise RuntimeError('Input Tensor Shape: {}'.format(input_shape))
 
-        with tf.variable_scope(layer_name):
-            weight = weight_variable([input_dim, no_filters])
-            bias = bias_variable([no_filters])
-            if summaries:
-                variable_summaries(weight, layer_name + '/weight')
-                variable_summaries(bias, layer_name + '/bias')
+        weight = weight_variable([input_dim, no_filters])
+        bias = bias_variable([no_filters])
+        preactivate = tf.nn.bias_add(tf.matmul(input_tensor, weight), bias)
+        activation = act(preactivate, "activation")
 
-        with tf.name_scope('activations'):
-            preactivate = tf.nn.bias_add(tf.matmul(input_tensor, weight), bias)
-            activation = act(preactivate, "activation")
-            if dropout is not None:
-                activation = tf.nn.dropout(activation, dropout)
-            if summaries:
-                activation_summaries(activation, layer_name)
+        if dropout is not None:
+            activation = tf.nn.dropout(activation, dropout)
 
-            return activation
+        if summaries:
+            variable_summaries(weight, '/weights')
+            variable_summaries(bias, '/biases')
+            activation_summaries(activation, '/activations')
+
+        return activation
 
 
 def inference(images, keep_prob, summaries):
@@ -135,8 +131,9 @@ def inference(images, keep_prob, summaries):
                            layer_name='max_pool_2')
     out = fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
                    layer_name='fc_1', summaries=summaries)
-    logits = fc_layer(input_tensor=out, no_filters=NO_CLASSES, act=tf.identity,
-                      layer_name='fc_2', summaries=summaries)
+    logits = fc_layer(input_tensor=out, no_filters=NO_CLASSES,
+                      act=tf.identity, layer_name='fc_2',
+                      summaries=summaries)
 
     return logits
 
