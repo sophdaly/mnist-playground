@@ -6,6 +6,7 @@ from __future__ import print_function
 import tensorflow as tf
 from tensorflow.contrib.learn.python.learn.datasets.mnist import read_data_sets
 import conv_mnist
+import utils
 import argparse
 import time
 import sys
@@ -47,8 +48,8 @@ def main(_):
         summary_op = tf.summary.merge_all()
 
         # Instantiate summary writer for training
-        summary_writer = tf.summary.FileWriter(FLAGS.log_dir + '/summary',
-                                               sess.graph)
+        summary_file = utils.git_hash_file_path(FLAGS.log_dir, 'summary')
+        summary_writer = tf.summary.FileWriter(summary_file, sess.graph)
 
         # Add variable initializer
         init = tf.global_variables_initializer()
@@ -91,18 +92,19 @@ def main(_):
             if (i + 1) % 1000 == 0 or (i + 1) == FLAGS.steps:
                 # Since Tf variables are only alive inside a session you
                 # have to save the model inside the session
-                checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
+                checkpoint_file = utils.git_hash_file_path(FLAGS.model_dir,
+                                                           'model.ckpt')
                 saver.save(sess, checkpoint_file, global_step=i)
 
                 # Evaluate training data
                 print("Evaluating Training Data:")
-                conv_mnist.evaluate(sess, mnist.train, images_pl, labels_pl,
-                                    keep_prob_pl, 0.1, accuracy_op)
+                conv_mnist.evaluate(sess, mnist.train, accuracy_op, images_pl,
+                                    labels_pl, keep_prob_pl, 0.1)
 
                 # Evaluate test data
                 print("Evaluating Test Data:")
-                conv_mnist.evaluate(sess, mnist.test, images_pl, labels_pl,
-                                    keep_prob_pl, 1, accuracy_op)
+                conv_mnist.evaluate(sess, mnist.test, accuracy_op, images_pl,
+                                    labels_pl, keep_prob_pl, 1)
 
 
 if __name__ == '__main__':
@@ -112,8 +114,11 @@ if __name__ == '__main__':
     parser.add_argument('--summaries', action='store_true',
                         help='Generate Tensorboard summaries')
     parser.add_argument('--log_dir', type=str,
-                        default='log/conv_mnist/model',
+                        default='logs/conv_mnist',
                         help='Path to log directory')
+    parser.add_argument('--model_dir', type=str,
+                        default='models/conv_mnist',
+                        help='Path to model directory')
     parser.add_argument('--steps', type=int, default=5000,
                         help='Number of steps to run trainer')
 

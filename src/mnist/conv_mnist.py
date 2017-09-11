@@ -18,35 +18,35 @@ IMAGE_SIZE = 28
 BATCH_SIZE = 100
 
 
-def weight_variable(shape):
+def _weight_variable(shape):
     return tf.get_variable(name='weights',
                            initializer=tf.truncated_normal(shape, stddev=0.1))
 
 
-def bias_variable(shape):
+def _bias_variable(shape):
     return tf.get_variable(name='biases',
                            initializer=tf.constant(0.1, shape=shape))
 
 
-def conv2d(x, W):
+def _conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
 
-def variable_summaries(var, name):
+def _variable_summaries(var, name):
     mean = tf.reduce_mean(var)
     tf.summary.scalar(name + '/mean', mean)
     stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
     tf.summary.scalar(name + '/stddev', stddev)
 
 
-def activation_summaries(x, name):
+def _activation_summaries(x, name):
     tf.summary.scalar(name + '/sparsity', tf.nn.zero_fraction(x))
     tf.summary.histogram(name, x)
-    variable_summaries(x, name)
+    _variable_summaries(x, name)
 
 
-def conv2d_layer(layer_name, input_tensor, filter_size, no_filters,
-                 act=tf.nn.relu, summaries=False):
+def _conv2d_layer(layer_name, input_tensor, filter_size, no_filters,
+                  act=tf.nn.relu, summaries=False):
     '''
     Implement 2D convolution, non-linearize with ReLU
     '''
@@ -55,21 +55,21 @@ def conv2d_layer(layer_name, input_tensor, filter_size, no_filters,
     with tf.variable_scope(layer_name):
         input_dim = input_tensor.get_shape()[-1].value
 
-        weight = weight_variable([filter_size, filter_size, input_dim,
-                                 no_filters])
-        bias = bias_variable([no_filters])
-        preactivate = tf.nn.bias_add(conv2d(input_tensor, weight), bias)
+        weight = _weight_variable([filter_size, filter_size, input_dim,
+                                  no_filters])
+        bias = _bias_variable([no_filters])
+        preactivate = tf.nn.bias_add(_conv2d(input_tensor, weight), bias)
         activation = act(preactivate, "activation")
 
         if summaries:
-            variable_summaries(weight, '/weights')
-            variable_summaries(bias, '/biases')
-            activation_summaries(activation, 'activations')
+            _variable_summaries(weight, '/weights')
+            _variable_summaries(bias, '/biases')
+            _activation_summaries(activation, 'activations')
 
         return activation
 
 
-def max_pool2d_layer(layer_name, input_tensor, pool_size, stride):
+def _max_pool2d_layer(layer_name, input_tensor, pool_size, stride):
     '''
     Apply 2x2 max pooling
     '''
@@ -80,8 +80,8 @@ def max_pool2d_layer(layer_name, input_tensor, pool_size, stride):
         return pooled
 
 
-def fc_layer(layer_name, input_tensor, no_filters, act=tf.nn.relu,
-             dropout=None, summaries=False):
+def _fc_layer(layer_name, input_tensor, no_filters, act=tf.nn.relu,
+              dropout=None, summaries=False):
     '''
     Flatten input_tensor if needed, non-linearize with ReLU and optionally
     apply dropout
@@ -97,8 +97,8 @@ def fc_layer(layer_name, input_tensor, no_filters, act=tf.nn.relu,
         else:
             raise RuntimeError('Input Tensor Shape: {}'.format(input_shape))
 
-        weight = weight_variable([input_dim, no_filters])
-        bias = bias_variable([no_filters])
+        weight = _weight_variable([input_dim, no_filters])
+        bias = _bias_variable([no_filters])
         preactivate = tf.nn.bias_add(tf.matmul(input_tensor, weight), bias)
         activation = act(preactivate, "activation")
 
@@ -106,9 +106,9 @@ def fc_layer(layer_name, input_tensor, no_filters, act=tf.nn.relu,
             activation = tf.nn.dropout(activation, dropout)
 
         if summaries:
-            variable_summaries(weight, '/weights')
-            variable_summaries(bias, '/biases')
-            activation_summaries(activation, '/activations')
+            _variable_summaries(weight, '/weights')
+            _variable_summaries(bias, '/biases')
+            _activation_summaries(activation, '/activations')
 
         return activation
 
@@ -121,19 +121,19 @@ def inference(images, keep_prob, summaries):
     # [BATCH_SIZE, 784] -> [BATCH_SIZE, width, height, no_color_channels]
     input = tf.reshape(images, [-1, IMAGE_SIZE, IMAGE_SIZE, 1])
 
-    out = conv2d_layer(input_tensor=input, filter_size=5, no_filters=32,
-                       layer_name='conv_1', summaries=summaries)
-    out = max_pool2d_layer(input_tensor=out, pool_size=2, stride=2,
-                           layer_name='max_pool_1')
-    out = conv2d_layer(input_tensor=out, filter_size=5, no_filters=64,
-                       layer_name='conv_2', summaries=summaries)
-    out = max_pool2d_layer(input_tensor=out, pool_size=2, stride=2,
-                           layer_name='max_pool_2')
-    out = fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
-                   layer_name='fc_1', summaries=summaries)
-    logits = fc_layer(input_tensor=out, no_filters=NO_CLASSES,
-                      act=tf.identity, layer_name='fc_2',
-                      summaries=summaries)
+    out = _conv2d_layer(input_tensor=input, filter_size=5, no_filters=32,
+                        layer_name='conv_1', summaries=summaries)
+    out = _max_pool2d_layer(input_tensor=out, pool_size=2, stride=2,
+                            layer_name='max_pool_1')
+    out = _conv2d_layer(input_tensor=out, filter_size=5, no_filters=64,
+                        layer_name='conv_2', summaries=summaries)
+    out = _max_pool2d_layer(input_tensor=out, pool_size=2, stride=2,
+                            layer_name='max_pool_2')
+    out = _fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
+                    layer_name='fc_1', summaries=summaries)
+    logits = _fc_layer(input_tensor=out, no_filters=NO_CLASSES,
+                       act=tf.identity, layer_name='fc_2',
+                       summaries=summaries)
 
     return logits
 
@@ -181,8 +181,8 @@ def fill_feed_dict(data, images_pl, labels_pl, keep_prob_pl, keep_prob):
             keep_prob_pl: keep_prob}
 
 
-def evaluate(sess, data, images_pl, labels_pl, keep_prob_pl, keep_prob,
-             accuracy_op):
+def evaluate(sess, data, accuracy_op, images_pl, labels_pl, keep_prob_pl,
+             keep_prob):
     '''
     Evaluate model against data
     '''
