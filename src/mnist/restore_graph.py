@@ -16,6 +16,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 FLAGS = None
 NO_CLASSES = 10
+BATCH_SIZE = 100
 
 
 def evaluate_restored_model(data, sess, graph):
@@ -32,7 +33,7 @@ def evaluate_restored_model(data, sess, graph):
 
     print("Evaluating Test Data via Restored Model:")
     conv_mnist.evaluate(sess, data, accuracy_op, images_pl, labels_pl,
-                        keep_prob_pl, 1)
+                        keep_prob_pl, 1, BATCH_SIZE)
 
 
 def main(_):

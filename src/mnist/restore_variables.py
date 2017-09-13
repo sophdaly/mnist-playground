@@ -16,6 +16,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 FLAGS = None
 NO_CLASSES = 10
+BATCH_SIZE = 100
 
 
 def forward_pass():
@@ -27,7 +28,7 @@ def forward_pass():
 
     # Build graph that computes predictions from inference model
     # Set summaries flag to False
-    logits = conv_mnist.inference(images_pl, keep_prob_pl, False)
+    logits, _ = conv_mnist.inference(images_pl, keep_prob_pl, False)
     return logits, images_pl, keep_prob_pl
 
 
@@ -41,7 +42,7 @@ def evaluate_model(logits, images_pl, keep_prob_pl, sess, data):
 
     print("Evaluating Test Data via Running Restored Inference Process:")
     conv_mnist.evaluate(sess, data, accuracy_op, images_pl, labels_pl,
-                        keep_prob_pl, 1)
+                        keep_prob_pl, 1, BATCH_SIZE)
 
 
 def main(_):

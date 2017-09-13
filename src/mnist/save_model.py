@@ -18,6 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 FLAGS = None
 NO_CLASSES = 10
 LEARNING_RATE = 1e-4
+BATCH_SIZE = 100
 
 
 def main(_):
@@ -32,7 +33,7 @@ def main(_):
     keep_prob_pl = tf.placeholder(tf.float32, name='keep_prob_pl')
 
     # Build Graph that computes predictions from inference model
-    logits = conv_mnist.inference(images_pl, keep_prob_pl, FLAGS.summaries)
+    logits, _ = conv_mnist.inference(images_pl, keep_prob_pl, FLAGS.summaries)
 
     # Add loss operation to Graph
     loss_op = conv_mnist.loss(logits, labels_pl)
@@ -74,7 +75,8 @@ def main(_):
 
             # Fill feed dict with training data and dropout keep prob
             feed_dict = conv_mnist.fill_feed_dict(mnist.train, images_pl,
-                                                  labels_pl, keep_prob_pl, 0.5)
+                                                  labels_pl, keep_prob_pl,
+                                                  0.5, BATCH_SIZE)
 
             # Train model
             sess.run(train_op, feed_dict=feed_dict)
@@ -99,12 +101,12 @@ def main(_):
                 # Evaluate training data
                 print("Evaluating Training Data:")
                 conv_mnist.evaluate(sess, mnist.train, accuracy_op, images_pl,
-                                    labels_pl, keep_prob_pl, 0.1)
+                                    labels_pl, keep_prob_pl, 0.1, BATCH_SIZE)
 
                 # Evaluate test data
                 print("Evaluating Test Data:")
                 conv_mnist.evaluate(sess, mnist.test, accuracy_op, images_pl,
-                                    labels_pl, keep_prob_pl, 1)
+                                    labels_pl, keep_prob_pl, 1, BATCH_SIZE)
 
 
 if __name__ == '__main__':

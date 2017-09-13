@@ -15,7 +15,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 NO_CLASSES = 10
 IMAGE_SIZE = 28
-BATCH_SIZE = 100
 
 
 def _weight_variable(shape):
@@ -118,7 +117,7 @@ def inference(images, keep_prob, summaries):
     Build network graph to compute output predictions for images
     '''
     # Reshape images to 4d tensor
-    # [BATCH_SIZE, 784] -> [BATCH_SIZE, width, height, no_color_channels]
+    # [batch, 784] -> [batch, width, height, no_color_channels]
     input = tf.reshape(images, [-1, IMAGE_SIZE, IMAGE_SIZE, 1])
 
     out = _conv2d_layer(input_tensor=input, filter_size=5, no_filters=32,
@@ -131,11 +130,16 @@ def inference(images, keep_prob, summaries):
                             layer_name='max_pool_2')
     out = _fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
                     layer_name='fc_1', summaries=summaries)
+
+    # Representation layer
+    features = _fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
+                         layer_name='fc_1', summaries=summaries)
+    # Prediction layer
     logits = _fc_layer(input_tensor=out, no_filters=NO_CLASSES,
                        act=tf.identity, layer_name='fc_2',
                        summaries=summaries)
 
-    return logits
+    return logits, features
 
 
 def loss(logits, labels):
@@ -171,27 +175,27 @@ def accuracy(logits, labels):
     return accuracy_op
 
 
-def fill_feed_dict(data, images_pl, labels_pl, keep_prob_pl, keep_prob):
+def fill_feed_dict(data, images_pl, labels_pl, keep_prob_pl, keep_prob, batch):
     '''
     Fill feed_dict for training step
     '''
-    batch_images, batch_labels = data.next_batch(BATCH_SIZE)
+    batch_images, batch_labels = data.next_batch(batch)
     return {images_pl: batch_images,
             labels_pl: batch_labels,
             keep_prob_pl: keep_prob}
 
 
 def evaluate(sess, data, accuracy_op, images_pl, labels_pl, keep_prob_pl,
-             keep_prob):
+             keep_prob, batch):
     '''
     Evaluate model against data
     '''
-    epoch = data.num_examples // BATCH_SIZE
+    epoch = data.num_examples // batch
     acc = 0.0
     t0 = time.time()
     for i in range(epoch):
-        feed_dict = fill_feed_dict(data, images_pl, labels_pl,
-                                   keep_prob_pl, keep_prob)
+        feed_dict = fill_feed_dict(data, images_pl, labels_pl, keep_prob_pl,
+                                   keep_prob, batch)
         acc += sess.run(accuracy_op, feed_dict=feed_dict)
 
     print(("Epoch Accuracy: {:.4f} [timer: {:.2f}s]")
