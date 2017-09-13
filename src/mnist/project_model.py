@@ -8,7 +8,6 @@ import tensorflow as tf
 import numpy as np
 import argparse
 import sprite
-import utils
 import sys
 import os
 
@@ -102,7 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default='data/mnist_data',
                         help='Path to input data directory')
     parser.add_argument('--log_dir', type=str,
-                        default=utils.git_hash_dir_path('logs/conv_mnist/'),
+                        default='logs/conv_mnist/',
                         help='Path to log directory')
     parser.add_argument('--create_sprite', action='store_true',
                         help='Create sprite image')
