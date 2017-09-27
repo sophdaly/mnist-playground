@@ -1,6 +1,6 @@
-'''
+"""
 Visualise embeddings for mnist
-'''
+"""
 
 from tensorflow.contrib.tensorboard.plugins import projector
 import tensorflow as tf
@@ -107,10 +107,10 @@ def main(_):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_dir', type=str,
-                        default=utils.git_hash_dir_path('models/conv_mnist'),
+                        default=utils.git_hash_dir_path('models/mnist'),
                         help='Path to input data directory')
     parser.add_argument('--log_dir', type=str,
-                        default=utils.git_hash_file_path('logs/conv_mnist/',
+                        default=utils.git_hash_file_path('logs/mnist/',
                                                          'embeddings'),
                         help='Path to log directory')
     parser.add_argument('--create_sprite', action='store_true',

@@ -140,15 +140,15 @@ def main(_):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, default='data/mnist_data',
+    parser.add_argument('--data_dir', type=str, default='data/mnist',
                         help='Path to input data directory')
     parser.add_argument('--summaries', action='store_true',
                         help='Generate Tensorboard summaries')
     parser.add_argument('--log_dir', type=str,
-                        default='logs/conv_mnist',
+                        default='logs/mnist',
                         help='Path to log directory')
     parser.add_argument('--model_dir', type=str,
-                        default='models/conv_mnist',
+                        default='models/mnist',
                         help='Path to model directory')
     parser.add_argument('--steps', type=int, default=5000,
                         help='Number of steps to run trainer')

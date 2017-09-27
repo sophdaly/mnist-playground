@@ -46,10 +46,10 @@ def main():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, default='data/mnist_data',
+    parser.add_argument('--data_dir', type=str, default='data/mnist',
                         help='Path to checkpoint directory')
     parser.add_argument('--model_dir', type=str,
-                        default=utils.git_hash_dir_path('models/conv_mnist'),
+                        default=utils.git_hash_dir_path('models/mnist'),
                         help='Path to features directory')
 
     FLAGS, unparsed = parser.parse_known_args()

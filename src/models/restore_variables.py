@@ -1,6 +1,6 @@
 """
-Restores entire graph from previously trained MNIST ConvNet model and
-evaluates against test data
+Restores variable values from previously trained MNIST ConvNet model, re runs
+inference process and evaluates accuracy against test data
 """
 
 import tensorflow as tf
@@ -19,19 +19,28 @@ NO_CLASSES = 10
 BATCH_SIZE = 100
 
 
-def evaluate_restored_model(data, sess, graph):
+def forward_pass():
     '''
-    Evaluate accuracy of restored model against data
+    Compute forward pass of images through whole network
     '''
-    # Access restored placeholder variables to feed new data
-    images_pl = graph.get_tensor_by_name("images_pl:0")
-    labels_pl = graph.get_tensor_by_name("labels_pl:0")
-    keep_prob_pl = graph.get_tensor_by_name("keep_prob_pl:0")
+    images_pl = tf.placeholder(tf.float32, shape=[None, 784], name='images_pl')
+    keep_prob_pl = tf.placeholder(tf.float32, name='keep_prob_pl')
 
-    # Access restored operation to re run
-    accuracy_op = graph.get_tensor_by_name("accuracy_op:0")
+    # Build graph that computes predictions from inference model
+    # Set summaries flag to False
+    logits, _ = conv_mnist.inference(images_pl, keep_prob_pl, False)
+    return logits, images_pl, keep_prob_pl
 
-    print("Evaluating Test Data via Restored Model:")
+
+def evaluate_model(logits, images_pl, keep_prob_pl, sess, data):
+    '''
+    Evaluate accuracy of model against data
+    '''
+    labels_pl = tf.placeholder(tf.float32, shape=[None, NO_CLASSES],
+                               name='labels_pl')
+    accuracy_op = conv_mnist.accuracy(logits, labels_pl)
+
+    print("Evaluating Test Data via Running Restored Inference Process:")
     conv_mnist.evaluate(sess, data, accuracy_op, images_pl, labels_pl,
                         keep_prob_pl, 1, BATCH_SIZE)
 
@@ -42,27 +51,23 @@ def main(_):
     # Get latest checkpoint file from dir
     latest_checkpoint = tf.train.latest_checkpoint(FLAGS.model_dir)
 
-    # Load latest checkpoint Graph via import_meta_graph:
-    #   - construct protocol buffer from file content
-    #   - add all nodes to current graph and recreate collections
-    #   - return Saver
-    saver = tf.train.import_meta_graph(latest_checkpoint + '.meta')
+    # Compute forward pass
+    logits, images_pl, keep_prob_pl = forward_pass()
+
+    # Add ops to restore values of the variables created from forward pass
+    # from checkpoints
+    saver = tf.train.Saver(tf.global_variables())
 
     # Start session
     with tf.Session() as sess:
 
         # Restore previously trained variables from disk
-        print("Restoring Model: {}".format(latest_checkpoint))
+        print("Restoring Saved Variables from Checkpoint: {}"
+              .format(latest_checkpoint))
         saver.restore(sess, latest_checkpoint)
-
-        # Retrieve protobuf graph definition
-        graph = tf.get_default_graph()
 
         # Optionally print restored operations, variables and saved values
         if FLAGS.print_data:
-            print("Restored Operations from MetaGraph:")
-            for op in graph.get_operations():
-                print(op.name)
             print("Restored Variables from MetaGraph:")
             for var in tf.global_variables():
                 print(var.name)
@@ -73,15 +78,15 @@ def main(_):
                 except Exception:
                     pass
 
-        evaluate_restored_model(mnist.test, sess, graph)
+        evaluate_model(logits, images_pl, keep_prob_pl, sess, mnist.test)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, default='data/mnist_data',
+    parser.add_argument('--data_dir', type=str, default='data/mnist',
                         help='Path to input data directory')
     parser.add_argument('--model_dir', type=str,
-                        default=utils.git_hash_dir_path('models/conv_mnist'),
+                        default=utils.git_hash_dir_path('models/mnist'),
                         help='Path to model directory')
     parser.add_argument('--print_data', action='store_true',
                         help='Print restored data')
