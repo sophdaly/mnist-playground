@@ -1,13 +1,13 @@
 '''
-Visualises embeddings for mnist
+Visualise embeddings for mnist
 '''
 
-from tensorflow.contrib.learn.python.learn.datasets.mnist import read_data_sets
 from tensorflow.contrib.tensorboard.plugins import projector
 import tensorflow as tf
 import numpy as np
 import argparse
 import sprite
+import utils
 import sys
 import os
 
@@ -19,20 +19,19 @@ IMAGE_SIZE = 28
 BATCH_SIZE = 5000
 
 
-def create_mnist_metadata(labels):
+def create_mnist_metadata(labels, file):
     '''
     Returns tsv metadata file associating label to each image
     Index: index in our embedding matrix
     Label: label of the mnist image
     '''
-    metadata_file = open(os.path.join(FLAGS.log_dir, 'metadata.tsv'), 'w')
-    metadata_file.write('Index\tLabel\n')
-    for i in range(BATCH_SIZE):
-        metadata_file.write("{}\t{}\n".format(i, labels[i]))
-    metadata_file.close()
+    file.write('Index\tLabel\n')
+    for i in range(labels.size):
+        file.write("{}\t{}\n".format(i, labels[i]))
+    file.close()
 
 
-def create_znist_metadata(labels):
+def create_znist_metadata(labels, file):
     '''
     Returns tsv metadata file associating label to each image
     Index: index in our embedding matrix
@@ -40,17 +39,25 @@ def create_znist_metadata(labels):
     '''
     names = ['t_shirt_top', 'trouser', 'pullover', 'dress', 'coat', 'sandal',
              'shirt', 'sneaker', 'bag', 'ankle_boots']
-    metadata_file = open(os.path.join(FLAGS.log_dir, 'metadata.tsv'), 'w')
-    metadata_file.write('Index\tLabel\n')
+    file.write('Index\tLabel\n')
     named_labels = np.array([names[j] for j in labels])
-    for i in range(BATCH_SIZE):
-        metadata_file.write("{}\t{}\n".format(i, named_labels[i]))
-    metadata_file.close()
+    for i in range(labels.size):
+        file.write("{}\t{}\n".format(i, named_labels[i]))
+    file.close()
+
+
+def load_predictions(file):
+    d = np.load(file)
+    images = d['images']
+    svm_preds = d['svm_preds']
+    return images, svm_preds
 
 
 def main(_):
-    mnist = read_data_sets(FLAGS.data_dir)
-    images, labels = mnist.train.next_batch(BATCH_SIZE)
+
+    # Load predictions
+    pred_file = os.path.join(FLAGS.model_dir, "test_predictions.npz")
+    images, labels = load_predictions(pred_file)
 
     # Create embedding
     embedding_var = tf.Variable(images, name="embedding")
@@ -66,10 +73,11 @@ def main(_):
     embedding.tensor_name = embedding_var.name
 
     # Specify metadata file
+    metadata_file = open(os.path.join(FLAGS.log_dir, 'metadata.tsv'), 'w')
     if FLAGS.znist:
-        create_znist_metadata(labels)
+        create_znist_metadata(labels, metadata_file)
     else:
-        create_mnist_metadata(labels)
+        create_mnist_metadata(labels, metadata_file)
     embedding.metadata_path = 'metadata.tsv'
 
     # Specify sprite file
@@ -92,16 +100,18 @@ def main(_):
         checkpoint_file = os.path.join(FLAGS.log_dir, 'model.ckpt')
         saver.save(sess, checkpoint_file)
 
-    print("Run 'tensorboard --logdir \"{}\"',".format(FLAGS.log_dir))
-    print("Open http://localhost:6006")
+    print("Run: tensorboard --logdir {}".format(FLAGS.log_dir))
+    print("Open: http://localhost:6006")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, default='data/mnist_data',
+    parser.add_argument('--model_dir', type=str,
+                        default=utils.git_hash_dir_path('models/conv_mnist'),
                         help='Path to input data directory')
     parser.add_argument('--log_dir', type=str,
-                        default='logs/conv_mnist/',
+                        default=utils.git_hash_file_path('logs/conv_mnist/',
+                                                         'embeddings'),
                         help='Path to log directory')
     parser.add_argument('--create_sprite', action='store_true',
                         help='Create sprite image')
