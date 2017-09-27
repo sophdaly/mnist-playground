@@ -135,7 +135,7 @@ def inference(images, keep_prob, summaries):
     features = _fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
                          layer_name='fc_1', summaries=summaries)
     # Prediction layer
-    logits = _fc_layer(input_tensor=out, no_filters=NO_CLASSES,
+    logits = _fc_layer(input_tensor=features, no_filters=NO_CLASSES,
                        act=tf.identity, layer_name='fc_2',
                        summaries=summaries)
 
