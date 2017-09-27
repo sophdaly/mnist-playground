@@ -1,4 +1,4 @@
-.PHONY: clean lint requirements
+.PHONY: clean data lint requirements
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -16,6 +16,11 @@ PYTHON_INTERPRETER = python
 ## Install Python Dependencies
 requirements: test_environment
 	pip install -r requirements.txt
+
+## Make Dataset
+data: requirements
+	$(PYTHON_INTERPRETER) src/data/fetch_mnist.py
+	$(PYTHON_INTERPRETER) src/data/fetch_znist.py
 
 ## Delete all compiled Python files
 clean:
