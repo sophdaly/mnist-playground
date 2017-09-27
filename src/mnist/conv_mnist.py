@@ -16,6 +16,32 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 NO_CLASSES = 10
 IMAGE_SIZE = 28
 
+# Variables:
+# - tensor whose value can be changed by running ops on it
+# - all variables automatically added to graph collections
+# GraphKeys.TRAINABLE_VARIABLES and GraphKeys.GLOBAL_VARIABLES
+
+# tf.Variable() constructor
+# - always create a new variable even given the same name, just appends _1, _2
+# etc. to variables constrcuted with the same name - can cause conflicts :(
+# - requires that an initial value be specified
+# - prefixes the name with the current variable or name scope
+
+# tf.get_variable() constructor
+# - gets an existing variable with input parameters or create a new one
+# - enables variable sharing i.e. reusing previously created variables of the
+# same name, making it easy to define models which reuse layers
+# - prefixes the name with the current variable scope to perform reuse checks
+
+# Scopes:
+# - name_scope will add scope as a prefix to all operations
+# - variable_scope will add scope as a prefix to all variables AND
+# operations
+# Note: when instantiating variables using tf.Variable() constructer,
+# name_scope and variable_scope have the same effect, it's just
+# tf.get_variable() that ignores name_scope
+# Always use tf.variable_scope to define the scope of a shared variable
+
 
 def _weight_variable(shape):
     return tf.get_variable(name='weights',
@@ -128,8 +154,6 @@ def inference(images, keep_prob, summaries):
                         layer_name='conv_2', summaries=summaries)
     out = _max_pool2d_layer(input_tensor=out, pool_size=2, stride=2,
                             layer_name='max_pool_2')
-    out = _fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
-                    layer_name='fc_1', summaries=summaries)
 
     # Representation layer
     features = _fc_layer(input_tensor=out, no_filters=1024, dropout=keep_prob,
