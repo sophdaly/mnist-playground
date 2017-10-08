@@ -7,7 +7,6 @@ import tensorflow as tf
 import numpy as np
 import argparse
 import sprite
-import utils
 import sys
 import os
 
@@ -106,12 +105,9 @@ def main(_):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_dir', type=str,
-                        default=utils.git_hash_dir_path('models/mnist'),
+    parser.add_argument('--model_dir', type=str, required=True,
                         help='Path to input data directory')
-    parser.add_argument('--log_dir', type=str,
-                        default=utils.git_hash_file_path('logs/mnist/',
-                                                         'embeddings'),
+    parser.add_argument('--log_dir', type=str, required=True,
                         help='Path to log directory')
     parser.add_argument('--create_sprite', action='store_true',
                         help='Create sprite image')
