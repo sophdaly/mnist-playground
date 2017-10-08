@@ -1,5 +1,5 @@
 """
-Visualise embeddings for mnist
+Visualise feature space embeddings for mnist
 """
 
 from tensorflow.contrib.tensorboard.plugins import projector
