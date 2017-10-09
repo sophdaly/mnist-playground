@@ -30,10 +30,11 @@ class PCA:
         with self.graph.as_default():
             self.X = tf.placeholder(self.dtype, shape=self.data.shape)
 
-            # Perform SVD
+            # Perform Single Value Decomposition (Xn,p -> UΣV^tr)
+            # SVD returns the diagonal values of Σ, and matrices U and V
             singular_values, u, _ = tf.svd(self.X)
 
-            # Create sigma matrix
+            # Create diagonal sigma matrix
             sigma = tf.diag(singular_values)
 
         with tf.Session(graph=self.graph) as session:
@@ -48,17 +49,17 @@ class PCA:
             normalized_singular_values = self.singular_values / sum(
                 self.singular_values)
 
-            # Create the aggregated ladder of kept information per dimension
+            # Create aggregated ladder of kept information per dimension
             ladder = np.cumsum(normalized_singular_values)
 
-            # Get the first index which is above the given info threshold
+            # Get first index above given info threshold
             index = next(
                 idx for idx,
                 value in enumerate(ladder) if value >= keep_info) + 1
             n_dimensions = index
 
         with self.graph.as_default():
-            # Cut out the relevant part from sigma
+            # Cut out relevant part from sigma
             sigma = tf.slice(self.sigma, [0, 0], [self.data.shape[1],
                              n_dimensions])
 

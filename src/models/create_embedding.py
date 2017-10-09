@@ -29,8 +29,9 @@ def performPCA(dim, data, labels):
     '''
     Return data with PCA reduced dimensionality
     '''
-    # Note: sklearn's PCA implementation results in seg fault when using large
-    # data set so implemented PCA directly using tensorflow
+    # Note: sklearn's PCA implementation throws seg fault when reducing large
+    # dataset to dimensions > 20 on mac, to avoid this PCA is implemented
+    # directly using tensorflow
     # PCA:
     # - linear and fast dimensionality reduction method
     # - reduces number of dimensions in a dataset while retaining most
@@ -89,7 +90,7 @@ def main():
     test_images, test_feats, test_labels = load_features(test_data)
 
     # Combine data to perform dimensionality reduction on entire data set as
-    # sklearn's t-sne/pca implementations do not support batch/streaming
+    # sklearn's t-sne implementation does not support batch/streaming
     feats = np.concatenate((train_feats, test_feats))
     labels = np.concatenate((train_labels, test_labels))
 
