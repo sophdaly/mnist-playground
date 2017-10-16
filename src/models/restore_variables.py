@@ -1,6 +1,6 @@
 """
-Restores variable values from previously trained MNIST ConvNet model, re runs
-inference process and evaluates accuracy against test data
+Restore variable values from previously trained MNIST ConvNet model, re run
+inference process and evaluate accuracy against test data
 """
 
 import tensorflow as tf

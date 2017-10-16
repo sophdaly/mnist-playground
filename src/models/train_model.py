@@ -1,5 +1,5 @@
 """
-Trains, evaluates and saves MNIST ConvNet model
+Train, evaluate and save MNIST ConvNet model
 """
 
 from __future__ import print_function

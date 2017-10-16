@@ -1,5 +1,5 @@
 """
-Plot 2D embedding
+Plot t-SNE 2D embedding space
 """
 
 from __future__ import print_function

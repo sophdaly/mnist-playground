@@ -1,6 +1,6 @@
 """
-Restores entire graph from previously trained MNIST ConvNet model and
-evaluates against test data
+Restore entire graph from previously trained MNIST ConvNet model and
+evaluate against test data
 """
 
 import tensorflow as tf
