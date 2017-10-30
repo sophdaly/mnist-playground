@@ -12,6 +12,7 @@ Playground for experimenting with neural nets and deep learning using Tensorflow
 * Projecting embeddings using Tensorboard
 * Dimensionality Reduction via PCA and t-SNE
 * kNN classification using embedded feature space 
+* Nearest Neighbour search via k-d trees
 
 
 ## Data 
