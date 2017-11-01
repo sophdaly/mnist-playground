@@ -6,6 +6,7 @@ embedding of ZNIST convnet feature space:
 
 from __future__ import print_function
 from sklearn.neighbors import KDTree
+from matplotlib import animation, rc
 import matplotlib.pyplot as plt
 import pylab as pl
 import numpy as np
@@ -37,6 +38,33 @@ def plot_image(image, label):
     plt.show()
 
 
+def plot_gif(images, labels):
+    '''
+    Plot images in a gif
+    '''
+    rc('animation', html='html5')
+
+    images = np.reshape(images, (-1, IMAGE_SIZE, IMAGE_SIZE))
+    no_plots = images.shape[0]
+
+    fig = plt.figure(figsize=(2, 2))
+    plt.axis('off')
+    im = plt.imshow(np.zeros((IMAGE_SIZE, IMAGE_SIZE)), cmap=pl.cm.gray_r)
+
+    def init():
+        im.set_data(np.zeros((IMAGE_SIZE, IMAGE_SIZE)))
+        return im
+
+    def update(i):
+        im.set_data(images[i])
+        im.autoscale()
+        return im
+
+    anim = animation.FuncAnimation(fig, func=update, init_func=init,
+                                   frames=no_plots, interval=500, repeat=False)
+    return anim
+
+
 def plot_images(images, labels):
     '''
     Plot list of images in a row
@@ -52,7 +80,6 @@ def plot_images(images, labels):
         image = images[i]
         display[i * height:(i + 1) * height, 0:width] = image
 
-    # plt.figure(figsize=(no_plots * no_plots, no_plots))
     plt.title("Nearest Neighbours: {}".format(no_plots))
     plt.imshow(display, cmap=pl.cm.gray_r)
     plt.axis('off')
@@ -90,6 +117,6 @@ def nearest_neighbour_search(selected_index, images, feats, labels,
     # - M nearest neighbors: close to O(MlogN)
 
     tree = KDTree(feats)
-    dist, ind = tree.query([feats[selected_index]], k=no_neighbours)
-    print("Nearest neighbour indices: {}".format(ind[0]))
-    plot_images(images[ind], labels[ind])
+    dist, inds = tree.query([feats[selected_index]], k=no_neighbours)
+    print("Nearest neighbour indices: {}".format(inds[0]))
+    return inds
